@@ -1,3 +1,4 @@
+use std::ops::Range;
 use crate::comp_errors::{CodeError, CodeResult};
 
 pub enum TokenType {
@@ -51,6 +52,16 @@ impl CodePosition {
     
     pub fn eof() -> Self {
         CodePosition {idx: 0, line: 0, line_idx_start: 0, line_idx_end: 0}
+    }
+    
+    pub fn is_eof(&self) -> bool {
+        [self.idx, self.line, self.line_idx_start, self.line_idx_end].iter().all(|t| {*t==0})
+    }
+}
+
+impl CodePosition {
+    pub fn range(&self) -> Range<usize> {
+        self.line_idx_start..self.line_idx_end
     }
 }
 
@@ -156,10 +167,13 @@ fn tokenizer(scanner: &mut Scanner) -> CodeResult<Option<Token>> {
                     '-' => TokenType::Minus,
                     '/' => TokenType::Slash,
                     '*' => TokenType::Star,
+                    '|' => TokenType::Pipe,
+                    '&' => TokenType::And,
                     ':' => TokenType::Colon,
                     ';' => TokenType::SemiColon,
                     _ => unreachable!(),
                 };
+                scanner.pop();
                 return Ok(scanner.this_as_token(token_type));
             }
             '>' => {
@@ -207,7 +221,7 @@ fn tokenizer(scanner: &mut Scanner) -> CodeResult<Option<Token>> {
                 }
                 let identifier: String = scanner.characters[start_pos..scanner.cursor].iter().collect();
                 let token_type = match identifier.as_str() {
-                    "define" => TokenType::Define,
+                    "def" => TokenType::Define,
                     "export" => TokenType::Export,
                     "import" => TokenType::Import,
                     "extern" => TokenType::Extern,
@@ -282,8 +296,8 @@ fn tokenizer(scanner: &mut Scanner) -> CodeResult<Option<Token>> {
                 }
                 return Err(CodeError::new_eof_error());
             }
-            other => {
-                return Err(CodeError::new_unknown_char_error(scanner.this_as_codepos2(), *other));
+            _ => {
+                return Err(CodeError::new_unknown_char_error(scanner.this_as_codepos2(), *current));
             }
         }
     }
@@ -301,5 +315,4 @@ pub fn tokenize(content: String) -> CodeResult<Vec<Token>> {
             return Ok(tokens)
         }
     }
-    
 }
