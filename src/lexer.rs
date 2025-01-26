@@ -1,6 +1,7 @@
 use std::ops::Range;
 use crate::comp_errors::{CodeError, CodeResult};
 
+#[derive(Debug)]
 pub enum TokenType {
     // Keywords
     Define,
@@ -65,6 +66,7 @@ impl CodePosition {
     }
 }
 
+#[derive(Debug)]
 pub struct Token {
     pub content: String,
     pub token_type: TokenType,
@@ -128,8 +130,15 @@ impl Scanner {
         }
     }
     
+    pub fn previous(&self) -> Option<&char> {
+        match self.characters.get(self.cursor - 1) {
+            Some(character) => { Some(character) }
+            None => None,
+        }
+    }
+    
     pub fn this_as_token(&self, token_type: TokenType) -> Option<Token> {
-        let c = self.current();
+        let c = self.previous();
         if c.is_none() {
             None
         } else {
@@ -155,6 +164,26 @@ fn tokenizer(scanner: &mut Scanner) -> CodeResult<Option<Token>> {
         match current {
             ' ' | '\t' | '\n' | '\r' => {
                 scanner.pop();
+            }
+
+            '#' => {
+                if let Some('#') = scanner.peek() {
+                    // Multi-line comment
+                    scanner.pop(); // Consume the second '#'
+                    while let Some(c) = scanner.pop() {
+                        if *c == '#' && scanner.peek().is_some_and(|t| *t == '#') {
+                            scanner.pop(); // Consume the closing '#'
+                            break;
+                        }
+                    }
+                } else {
+                    // Single-line comment
+                    while let Some(c) = scanner.pop() {
+                        if *c == '\n' {
+                            break;
+                        }
+                    }
+                }
             }
 
             '(' | ')' | ',' | '.' | '+' | '-' | '/' | '*' | ':' | ';' => {
