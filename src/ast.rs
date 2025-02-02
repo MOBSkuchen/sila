@@ -11,7 +11,12 @@ pub enum BinOp {
     Xor,
     Eq,
     Neq,
-    Not
+    Not,
+    As,
+    Gt,
+    Ls,
+    Gte,
+    Lse
 }
 
 pub enum NumberType {
@@ -37,46 +42,57 @@ pub enum ExpressionType {
     Identifier
 }
 
+pub enum NodeType {
+    StringExpr,
+    NumberExpr,
+    IdentifierExpr,
+    FuncCallExpr,
+    BinOpExpr,
+    FunctionDef,
+    VarSet,
+}
+
 // TODO : Implement for all members
 pub trait Represent {}
 
 pub trait AstNodeTrait {
-    fn get_codepos() -> CodePosition;
+    fn get_codepos(&self) -> &CodePosition;
+    fn get_nodetype(&self) -> NodeType;
 }
-pub trait ExpressionTrait {}
+pub trait ExpressionTrait: AstNodeTrait {}
 
-pub trait FunctionCallExprTrait {
+pub trait FunctionCallExprTrait: AstNodeTrait {
     fn get_fname(&self) -> &String;
     fn get_cargs(&self) -> &Vec<impl ExpressionTrait>;
 }
 
-pub trait IdentifierExprTrait {
+pub trait IdentifierExprTrait: AstNodeTrait {
     fn get_sym_name(&self) -> &String;
 }
 
-pub trait BinOpExprTrait {
+pub trait BinOpExprTrait: AstNodeTrait {
     fn get_lhs(&self) -> &impl ExpressionTrait;
     fn get_rhs(&self) -> &impl ExpressionTrait;
     fn get_opc(&self) -> &BinOp;
 }
 
-pub trait StringExprTrait {
+pub trait StringExprTrait: AstNodeTrait {
     fn get_content(&self) -> &String;
 }
 
-pub trait NumberExprTrait {
+pub trait NumberExprTrait: AstNodeTrait {
     fn get_num_as_str(&self) -> &String;
     fn get_num_type(&self) -> &NumberType;
 }
 
-pub trait FunctionDefTrait {
+pub trait FunctionDefTrait: AstNodeTrait {
     fn get_body(&self) -> &Vec<impl AstNodeTrait>;
     fn get_name(&self) -> &String;
     fn get_out_type(&self) -> &impl IdentifierExprTrait;
     fn get_args(&self) -> &Vec<(impl IdentifierExprTrait, impl IdentifierExprTrait)>;
 }
 
-pub trait VariableSetTrait {
+pub trait VariableSetTrait: AstNodeTrait {
     fn get_name(&self) -> &String;
     fn is_mut(&self) -> bool;
     fn get_content(&self) -> &impl ExpressionTrait;
@@ -87,6 +103,17 @@ pub trait VariableSetTrait {
 pub struct FunctionCallExpr<Expr: ExpressionTrait> {
     function_name: String,
     call_args: Vec<Expr>,
+    code_position: CodePosition
+}
+
+impl<Expr: ExpressionTrait> AstNodeTrait for FunctionCallExpr<Expr> {
+    fn get_codepos(&self) -> &CodePosition {
+        &self.code_position
+    }
+
+    fn get_nodetype(&self) -> NodeType {
+        NodeType::FuncCallExpr
+    }
 }
 
 impl<Expr: ExpressionTrait> FunctionCallExprTrait for FunctionCallExpr<Expr> {
@@ -102,7 +129,24 @@ impl<Expr: ExpressionTrait> FunctionCallExprTrait for FunctionCallExpr<Expr> {
 impl<Expr: ExpressionTrait> ExpressionTrait for FunctionCallExpr<Expr> {}
 
 pub struct IdentifierExpr {
-    name: String
+    name: String,
+    code_position: CodePosition
+}
+
+impl IdentifierExpr {
+    pub fn new(name: String, code_position: CodePosition) -> Self {
+        Self {name, code_position}
+    }
+}
+
+impl AstNodeTrait for IdentifierExpr {
+    fn get_codepos(&self) -> &CodePosition {
+        &self.code_position
+    }
+
+    fn get_nodetype(&self) -> NodeType {
+        NodeType::IdentifierExpr
+    }
 }
 
 impl IdentifierExprTrait for IdentifierExpr {
@@ -114,7 +158,18 @@ impl IdentifierExprTrait for IdentifierExpr {
 impl ExpressionTrait for IdentifierExpr {}
 
 pub struct StringExpr {
-    content: String
+    content: String,
+    code_position: CodePosition
+}
+
+impl AstNodeTrait for StringExpr {
+    fn get_codepos(&self) -> &CodePosition {
+        &self.code_position
+    }
+
+    fn get_nodetype(&self) -> NodeType {
+        NodeType::StringExpr
+    }
 }
 
 impl StringExprTrait for StringExpr {
@@ -127,7 +182,18 @@ impl ExpressionTrait for StringExpr {}
 
 pub struct NumberExpr {
     number_raw_content: String,
-    number_type: NumberType
+    number_type: NumberType,
+    code_position: CodePosition
+}
+
+impl AstNodeTrait for NumberExpr {
+    fn get_codepos(&self) -> &CodePosition {
+        &self.code_position
+    }
+
+    fn get_nodetype(&self) -> NodeType {
+        NodeType::NumberExpr
+    }
 }
 
 impl NumberExprTrait for NumberExpr {
@@ -144,7 +210,24 @@ impl ExpressionTrait for NumberExpr {}
 pub struct BinOpExpr<Expr: ExpressionTrait> {
     lhs: Expr,
     rhs: Expr,
-    opc: BinOp
+    opc: BinOp,
+    code_position: CodePosition
+}
+
+impl<Expr: ExpressionTrait> BinOpExpr<Expr> {
+    pub fn new(lhs: Expr, rhs: Expr, opc: BinOp, code_position: CodePosition) -> Self {
+        Self {lhs, rhs, opc, code_position}
+    }
+}
+
+impl<Expr: ExpressionTrait> AstNodeTrait for BinOpExpr<Expr> {
+    fn get_codepos(&self) -> &CodePosition {
+        &self.code_position
+    }
+
+    fn get_nodetype(&self) -> NodeType {
+        NodeType::BinOpExpr
+    }
 }
 
 impl<Expr: ExpressionTrait> BinOpExprTrait for BinOpExpr<Expr> {
@@ -168,6 +251,17 @@ pub struct FunctionDef<Node: AstNodeTrait, Ident: IdentifierExprTrait> {
     name: String,
     out_type: Ident,
     args: Vec<(Ident, Ident)>,
+    code_position: CodePosition
+}
+
+impl<Node: AstNodeTrait, Ident: IdentifierExprTrait> AstNodeTrait for FunctionDef<Node, Ident> {
+    fn get_codepos(&self) -> &CodePosition {
+        &self.code_position
+    }
+
+    fn get_nodetype(&self) -> NodeType {
+        NodeType::FunctionDef
+    }
 }
 
 impl<Node: AstNodeTrait, Ident: IdentifierExprTrait> FunctionDefTrait for FunctionDef<Node, Ident> {
@@ -192,7 +286,18 @@ pub struct VariableSet<Expr: ExpressionTrait, Ident: IdentifierExprTrait> {
     name: String,
     mutable: bool,
     content: Expr,
-    dec_type: Option<Ident>
+    dec_type: Option<Ident>,
+    code_position: CodePosition
+}
+
+impl<Expr: ExpressionTrait, Ident: IdentifierExprTrait> AstNodeTrait for VariableSet<Expr, Ident> {
+    fn get_codepos(&self) -> &CodePosition {
+        &self.code_position
+    }
+
+    fn get_nodetype(&self) -> NodeType {
+        NodeType::VarSet
+    }
 }
 
 impl<Expr: ExpressionTrait, Ident: IdentifierExprTrait> VariableSetTrait for VariableSet<Expr, Ident> {
