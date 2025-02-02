@@ -50,6 +50,8 @@ pub enum NodeType {
     BinOpExpr,
     FunctionDef,
     VarSet,
+    Unary,
+    Cast
 }
 
 // TODO : Implement for all members
@@ -98,6 +100,62 @@ pub trait VariableSetTrait: AstNodeTrait {
     fn get_content(&self) -> &impl ExpressionTrait;
     fn get_type(&self) -> &Option<impl IdentifierExprTrait>;
     fn dec_type(&self) -> bool;
+}
+
+pub trait CastExprTrait: AstNodeTrait {
+    fn get_into_type(&self) -> &impl IdentifierExprTrait;
+    fn get_expr(&self) -> &impl ExpressionTrait;
+}
+
+pub trait UnaryExprTrait: AstNodeTrait {
+    fn get_inner(&self) -> &impl ExpressionTrait;
+}
+
+pub struct UnaryExpr<Expr: ExpressionTrait> {
+    expr: Expr,
+    code_position: CodePosition,
+}
+
+pub struct CastExpr<Expr: ExpressionTrait, Ident: IdentifierExprTrait> {
+    into_type: Ident,
+    expr: Expr,
+    code_position: CodePosition
+}
+
+impl<Expr: ExpressionTrait> AstNodeTrait for UnaryExpr<Expr> {
+    fn get_codepos(&self) -> &CodePosition {
+        &self.code_position
+    }
+
+    fn get_nodetype(&self) -> NodeType {
+        NodeType::Unary
+    }
+}
+
+impl<Expr: ExpressionTrait> UnaryExprTrait for UnaryExpr<Expr> {
+    fn get_inner(&self) -> &impl ExpressionTrait {
+        &self.expr
+    }
+}
+
+impl<Expr: ExpressionTrait, Ident: IdentifierExprTrait> AstNodeTrait for CastExpr<Expr, Ident> {
+    fn get_codepos(&self) -> &CodePosition {
+        &self.code_position
+    }
+
+    fn get_nodetype(&self) -> NodeType {
+        NodeType::Cast
+    }
+}
+
+impl<Expr: ExpressionTrait, Ident: IdentifierExprTrait> CastExprTrait for CastExpr<Expr, Ident> {
+    fn get_into_type(&self) -> &impl IdentifierExprTrait {
+        &self.into_type
+    }
+
+    fn get_expr(&self) -> &impl ExpressionTrait {
+        &self.expr
+    }
 }
 
 pub struct FunctionCallExpr<Expr: ExpressionTrait> {
