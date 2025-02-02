@@ -191,6 +191,17 @@ impl PendingCall {
         self.name == name
     }
     
+    // Just in case
+    pub fn get_args(&self) -> &Vec<String> {
+        &self.args
+    }
+
+    pub fn merge_args(&self, mut other: Vec<String>) -> Vec<String> {
+        let mut cla = self.args.clone();
+        cla.append(&mut other);
+        cla
+    }
+    
     pub fn call(&self, argument_parser: &ArgumentParser, spec_args: Option<&Vec<String>>) -> bool {
         let args = spec_args.or(Some(&self.args));
         match self.call_type {
