@@ -23,21 +23,23 @@ impl Parser {
         token
     }
 
-    fn match_token(&self, pointer: &mut usize, token_type: TokenType) -> bool {
+    fn match_token(&self, pointer: &mut usize, token_type: TokenType) -> CodeResult<bool> {
+        self.is_done_err(pointer)?;
         if let Some(token) = self.peek(pointer) {
             if token.token_type == token_type {
                 self.advance(pointer);
-                return true;
+                return Ok(true);
             }
         }
-        false
+        Ok(false)
     }
     
     fn consume(&self, pointer: &mut usize, expected: TokenType, note: Option<String>) -> CodeResult<&Token> {
-        if self.match_token(pointer, expected) {
+        self.is_done_err(pointer)?;
+        if self.match_token(pointer, expected)? {
             Ok(self.previous(pointer).unwrap())
         } else {
-            Err(CodeError::new_unexpected_token_error(self.current(pointer).unwrap(), expected, note))
+            Err(CodeError::new_unexpected_token_error(self.current(pointer).or(self.previous(pointer)).unwrap(), expected, note))
         }
     }
     
@@ -126,7 +128,7 @@ impl Parser {
             let stmt = self.parse_statement(pointer)?;
             statements.push(Box::new(stmt));
 
-            if !self.match_token(pointer, TokenType::SemiColon) {
+            if !self.match_token(pointer, TokenType::SemiColon)? {
                 break;
             }
         }
@@ -141,7 +143,7 @@ impl Parser {
         let mut paras = vec![];
         while let Some(tok) = self.peek(pointer) {
             paras.push(Box::new(self.parse_expression(pointer)?));
-            if self.match_token(pointer, TokenType::RParen) {
+            if self.match_token(pointer, TokenType::RParen)? {
                 break
             }
             self.consume(pointer, TokenType::Comma, Some("Add a comma".to_string()))?;
@@ -161,7 +163,7 @@ impl Parser {
             match token.token_type {
                 TokenType::Identifier => {
                     self.advance(pointer);
-                    if self.match_token(pointer, TokenType::LParen) {
+                    if self.match_token(pointer, TokenType::LParen)? {
                         self.parse_function_call(pointer)
                     } else {
                         // TODO: No effect warning
@@ -176,13 +178,23 @@ impl Parser {
                     self.parse_return(pointer)
                 }
                 o => {
-                    panic!("145 => {:?}", o);
-                    Err(CodeError::placeholder())
+                    Err(CodeError::new_unexpected_token_error(token, TokenType::Statement, Some("Expected some sort of statement".to_string())))
                 }
             }
         } else {
-            panic!("150");
-            Err(CodeError::placeholder())
+            Err(CodeError::missing_token_error(self.previous(pointer).unwrap()))
+        }
+    }
+    
+    fn is_done(&self, pointer: &usize) -> bool {
+        (*pointer-1) == self.tokens.len()
+    }
+    
+    fn is_done_err(&self, pointer: &usize) -> CodeResult<()> {
+        if self.is_done(pointer) {
+            Err(CodeError::missing_token_error(self.previous(pointer).unwrap()))
+        } else {
+            Ok(())
         }
     }
 
@@ -200,7 +212,7 @@ impl Parser {
 
             arguments.push((name, Box::new(arg_type)));
 
-            if !self.match_token(pointer, TokenType::Comma) {
+            if !self.match_token(pointer, TokenType::Comma)? {
                 break;
             }
         }
@@ -210,7 +222,7 @@ impl Parser {
 
     fn parse_expression(&self, pointer: &mut usize) -> CodeResult<ASTNode> {
         let term = self.parse_term(pointer)?;
-        if self.match_token(pointer, TokenType::As) {
+        if self.match_token(pointer, TokenType::As)? {
             Ok(ASTNode::CastExpr(Box::new(term), Box::new(self.parse_type(pointer)?)))
         } else {
             Ok(term)
@@ -263,18 +275,21 @@ impl Parser {
                 }
                 TokenType::LParen => {
                     let expr = self.parse_expression(pointer)?;
-                    return if self.match_token(pointer, TokenType::RParen) {
+                    return if self.match_token(pointer, TokenType::RParen)? {
                         Ok(expr)
                     } else {
                         println!("LParen");
                         Err(CodeError::placeholder())
                     }
                 }
-                _ => {}
+                _ => {
+                    Err(CodeError::new_unexpected_token_error(self.previous(pointer).unwrap(), TokenType::Expression,
+                                                              Some("You may add a literal (number), string, variable, or a term here".to_string())))
+                }
             }
+        } else {
+            Err(CodeError::missing_token_error(self.previous(pointer).unwrap()))
         }
-        Err(CodeError::new_unexpected_token_error(self.previous(pointer).unwrap(), TokenType::Expression,
-                                                  Some("You may add a literal (number), string, variable, or a term here".to_string())))
     }
     
     fn parse_type(&self, pointer: &mut usize) -> CodeResult<ASTNode> {

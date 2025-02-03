@@ -1,3 +1,5 @@
+use std::fmt;
+use std::fmt::{Display, Formatter};
 use std::ops::Range;
 use crate::comp_errors::{CodeError, CodeResult};
 
@@ -44,7 +46,59 @@ pub enum TokenType {
     Return,
     
     // Virtual types
-    Expression
+    Expression,
+    Statement
+}
+
+
+impl TokenType {
+    pub fn visualize(&self) -> String {
+        (match self {
+            TokenType::Define => {"def"}
+            TokenType::Export => {"export"}
+            TokenType::Import => {"import"}
+            TokenType::Extern => {"extern"}
+            TokenType::Mut => {"mut"}
+            TokenType::Identifier => {"Identifier"}
+            TokenType::String => {"String"}
+            TokenType::NumberInt => {"Integer"}
+            TokenType::NumberFloat => {"Floating-point"}
+            TokenType::LParen => {"("}
+            TokenType::RParen => {")"}
+            TokenType::Comma => {","}
+            TokenType::Dot => {"."}
+            TokenType::Plus => {"+"}
+            TokenType::Minus => {"-"}
+            TokenType::Slash => {"/"}
+            TokenType::Star => {"*"}
+            TokenType::Colon => {":"}
+            TokenType::SemiColon => {";"}
+            TokenType::Greater => {">"}
+            TokenType::Lesser => {"<"}
+            TokenType::Pipe => {"|"}
+            TokenType::And => {"&"}
+            TokenType::Ref => {"&"}
+            TokenType::Exclamation => {"!"}
+            TokenType::Equals => {"="}
+            TokenType::DoubleEquals => {"=="}
+            TokenType::NotEquals => {"!="}
+            TokenType::GreaterEquals => {">="}
+            TokenType::LesserEquals => {"<="}
+            TokenType::RBrace => {"}"}
+            TokenType::LBrace => {"{"}
+            TokenType::As => {"->"}
+            TokenType::Private => {"private"}
+            TokenType::Return => {"return"}
+            TokenType::Expression => {"Expression"}
+            TokenType::Statement => {"Statement"},
+        }).to_string()
+    }
+}
+
+impl Display for TokenType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.visualize())
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
