@@ -1,14 +1,16 @@
-use crate::comp_errors::{CodeError, CodeResult};
-use crate::lexer::{Token, TokenType};
+use crate::codeviz::print_code_warn;
+use crate::comp_errors::{CodeError, CodeResult, CodeWarning};
+use crate::filemanager::FileManager;
+use crate::lexer::{CodePosition, Token, TokenType};
 
-pub struct Parser {
+pub struct Parser<'a> {
     tokens: Vec<Token>,
-    current: usize,
+    file_manager: &'a FileManager
 }
 
-impl Parser {
-    pub fn new(tokens: Vec<Token>) -> Self {
-        Self { tokens, current: 0 }
+impl<'a> Parser<'a> {
+    pub fn new(tokens: Vec<Token>, file_manager: &'a FileManager) -> Self {
+        Self { tokens, file_manager }
     }
 
     fn peek(&self, pointer: &usize) -> Option<&Token> {
@@ -33,6 +35,17 @@ impl Parser {
         }
         Ok(false)
     }
+
+    fn match_next_token(&self, pointer: &mut usize, token_type: TokenType) -> CodeResult<bool> {
+        self.is_done_err(pointer)?;
+        if let Some(token) = self.tokens.get(*pointer+1) {
+            if token.token_type == token_type {
+                self.advance(pointer);
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
     
     fn consume(&self, pointer: &mut usize, expected: TokenType, note: Option<String>) -> CodeResult<&Token> {
         self.is_done_err(pointer)?;
@@ -49,6 +62,18 @@ impl Parser {
 
     fn current(&self, pointer: &usize) -> Option<&Token> {
         self.tokens.get(*pointer)
+    }
+    
+    fn warning(&self, code_warning: CodeWarning) {
+        print_code_warn(code_warning, self.file_manager)
+    }
+    
+    fn codepos_from_space(&self, s: usize, e: &usize, sub_off: usize) -> CodePosition {
+        let start = self.tokens.get(s).unwrap().code_position;
+        let end = self.tokens.get(*e-sub_off).unwrap().code_position;
+        CodePosition { idx_start: start.idx_start, idx_end: end.idx_end,
+            line_start: start.line_start, line_end: end.line_end, 
+            line_idx_start: start.line_idx_start, line_idx_end: end.line_idx_end}
     }
 
     pub fn parse(&self, pointer: &mut usize) -> CodeResult<Vec<ASTNode>> {
@@ -140,6 +165,7 @@ impl Parser {
     
     fn parse_function_call(&self, pointer: &mut usize) -> CodeResult<ASTNode>  {
         let name = self.previous(pointer).unwrap();
+        self.consume(pointer, TokenType::LParen, None)?;
         let mut paras = vec![];
         while let Some(tok) = self.peek(pointer) {
             paras.push(Box::new(self.parse_expression(pointer)?));
@@ -162,17 +188,20 @@ impl Parser {
         if let Some(token) = token {
             match token.token_type {
                 TokenType::Identifier => {
-                    self.advance(pointer);
-                    if self.match_token(pointer, TokenType::LParen)? {
+                    if self.match_next_token(pointer, TokenType::LParen)? {
                         self.parse_function_call(pointer)
                     } else {
-                        // TODO: No effect warning
-                        self.parse_expression(pointer)
+                        let a = *pointer;
+                        let res = self.parse_expression(pointer);
+                        self.warning(CodeWarning::new_unnecessary_code(self.codepos_from_space(a, pointer, 1), None));
+                        res
                     }
                 } 
                 TokenType::NumberInt | TokenType::NumberFloat => {
-                    // TODO: No effect warning
-                    self.parse_expression(pointer)
+                    let a = *pointer;
+                    let res = self.parse_expression(pointer);
+                    self.warning(CodeWarning::new_unnecessary_code(self.codepos_from_space(a, pointer, 1), None));
+                    res
                 }
                 TokenType::Return => {
                     self.parse_return(pointer)
@@ -265,17 +294,21 @@ impl Parser {
         if let Some(token) = self.advance(pointer) {
             match token.token_type {
                 TokenType::NumberInt | TokenType::NumberFloat => {
-                    return Ok(ASTNode::Literal(token))
+                    Ok(ASTNode::Literal(token))
                 }
                 TokenType::Identifier => {
-                    return Ok(ASTNode::Identifier(token))
+                    if self.match_next_token(pointer, TokenType::LParen)? {
+                        self.parse_function_call(pointer)
+                    } else {
+                        Ok(ASTNode::Identifier(token))
+                    }
                 }
                 TokenType::String => {
-                    return Ok(ASTNode::String(token))
+                    Ok(ASTNode::String(token))
                 }
                 TokenType::LParen => {
                     let expr = self.parse_expression(pointer)?;
-                    return if self.match_token(pointer, TokenType::RParen)? {
+                    if self.match_token(pointer, TokenType::RParen)? {
                         Ok(expr)
                     } else {
                         println!("LParen");

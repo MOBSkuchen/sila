@@ -19,6 +19,13 @@ pub enum CodeErrorType {
 }
 
 #[derive(Debug)]
+pub enum CodeWarningType {
+    DeadCode,
+    UnnecessaryCode,
+    DiscouragedPractice
+}
+
+#[derive(Debug)]
 pub struct CodeError {
     pub position: CodePosition,
     pub code_error_type: CodeErrorType,
@@ -69,5 +76,25 @@ pub type CodeResult<T> = Result<T, CodeError>;
 impl fmt::Display for CodeErrorType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
+    }
+}
+
+pub struct CodeWarning {
+    pub position: CodePosition,
+    pub code_warn_type: CodeWarningType,
+    pub title: String,
+    pub footer: String,
+    pub pointer: Option<String>,
+    pub notes: Vec<String>
+}
+
+impl CodeWarning {
+    pub fn new(position: CodePosition, code_warn_type: CodeWarningType, title: String, footer: String, pointer: Option<String>, notes: Vec<String>) -> Self {
+        Self {position, code_warn_type, title, footer, pointer, notes }
+    }
+    
+    pub fn new_unnecessary_code(position: CodePosition, extra: Option<String>) -> Self {
+        Self::new(position, CodeWarningType::UnnecessaryCode, "Unnecessary code".to_string(),
+                  "This code does not change the outcome".to_string(), None, if extra.is_some() {vec![extra.unwrap()]} else {vec![]})
     }
 }
