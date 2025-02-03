@@ -95,6 +95,7 @@ impl CodeWarning {
     
     pub fn new_unnecessary_code(position: CodePosition, extra: Option<String>) -> Self {
         Self::new(position, CodeWarningType::UnnecessaryCode, "Unnecessary code".to_string(),
-                  "This code does not change the outcome".to_string(), None, if extra.is_some() {vec![extra.unwrap()]} else {vec![]})
+                  "This code does not change the outcome".to_string(), None, 
+                  if extra.is_some() {vec![extra.unwrap()]} else {vec!["You should remove it".to_string()]})
     }
 }
