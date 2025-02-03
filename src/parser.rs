@@ -2,6 +2,7 @@ use crate::codeviz::print_code_warn;
 use crate::comp_errors::{CodeError, CodeResult, CodeWarning};
 use crate::filemanager::FileManager;
 use crate::lexer::{CodePosition, Token, TokenType};
+use crate::parser::ASTNode::FunctionCall;
 
 pub struct Parser<'a> {
     tokens: Vec<Token>,
@@ -33,6 +34,16 @@ impl<'a> Parser<'a> {
         if let Some(token) = self.peek(pointer) {
             if token.token_type == token_type {
                 self.advance(pointer);
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+    
+    fn multi_match_token(&self, pointer: &mut usize, token_types: Vec<TokenType>) -> CodeResult<bool> {
+        self.is_done_err(pointer)?;
+        if let Some(token) = self.peek(pointer) {
+            if token_types.contains(&token.token_type) {
                 return Ok(true);
             }
         }
@@ -133,12 +144,16 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_function(&self, pointer: &mut usize) -> CodeResult<ASTNode> {
+        let fmod = if self.match_token(pointer, TokenType::Export)? { FunctionMode::Export }
+        else if self.match_token(pointer, TokenType::Private)? { FunctionMode::Private }
+        else if self.match_token(pointer, TokenType::Extern)? { FunctionMode::Extern } 
+        else { FunctionMode::Default };
+        
+        if self.multi_match_token(pointer, vec![TokenType::Extern, TokenType::Export, TokenType::Private])? {
+            return Err(CodeError::function_overloaded(self.previous(pointer).unwrap()))
+        }
+        
         let name = self.consume(pointer, TokenType::Identifier, None)?;
-
-        assert_eq!(
-            self.previous(pointer).unwrap().token_type,
-            TokenType::Identifier
-        );
 
         self.consume(pointer, TokenType::LParen, None)?;
 
@@ -153,7 +168,7 @@ impl<'a> Parser<'a> {
 
         Ok(ASTNode::FunctionDef(
             name,
-            FunctionMode::Default, // TODO: Add modifiers
+            fmod,
             Box::new(return_type),
             args,
             body,

@@ -106,8 +106,7 @@ impl FileManager {
     pub fn get_code_snippet(&self, code_position: &CodePosition) -> (Snippet, usize) {
         // TODO: Remove this super evil magic trick
         let sor_slc = self.get_surrounding_slice(code_position.line_start);
-        // There is some weird stuff going on here
-        let clean_path = &self.file_path.to_str().unwrap()[4..];
+        let clean_path = &self.input_file;
         (
             Snippet::source(sor_slc.0.leak())
                 .line_start(if code_position.line_start == 0 {
@@ -116,7 +115,7 @@ impl FileManager {
                     code_position.line_start
                 })
                 .origin(relative_path(clean_path).to_string().leak()),
-            sor_slc.1,
+            sor_slc.1
         )
     }
 }

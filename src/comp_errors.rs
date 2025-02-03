@@ -40,6 +40,7 @@ pub enum CodeErrorType {
     LexerEndOfFile,
     ParserUnexpectedToken,
     MissingTokenError,
+    FunctionOverloaded,
 }
 
 #[derive(Debug)]
@@ -91,7 +92,7 @@ impl CodeError {
             token.code_position,
             CodeErrorType::ParserUnexpectedToken,
             "Unexpected Token".to_string(),
-            Some(format!("Should be followed by `{}`", expected)),
+            Some(format!("Expected `{}` here", expected)),
             format!(
                 "Expected another token `{}`, but got `{}`",
                 expected, token.token_type
@@ -134,6 +135,17 @@ impl CodeError {
             Some("After this".to_string()),
             "Premature end of file!".to_string(),
             vec![],
+        )
+    }
+
+    pub fn function_overloaded(already_token: &Token) -> Self {
+        Self::new(
+            already_token.code_position,
+            CodeErrorType::FunctionOverloaded,
+            "Function was overloaded".to_string(),
+            Some("Function mode set here".to_string()),
+            "Can not have multiple function modes".to_string(),
+            vec!["Remove one of the modifiers".to_string()],
         )
     }
 
