@@ -1,7 +1,7 @@
 use std::ops::Range;
 use crate::comp_errors::{CodeError, CodeResult};
 
-#[derive(Debug)]
+#[derive(PartialEq, Copy, Debug, Clone)]
 pub enum TokenType {
     // Keywords
     Define,
@@ -35,34 +35,51 @@ pub enum TokenType {
     DoubleEquals,
     NotEquals,
     GreaterEquals,
-    LesserEquals
+    LesserEquals,
+    RBrace,
+    LBrace,
+    As,
+    Ref,
+    Private,
+    Return,
+    
+    // Virtual types
+    Expression
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct CodePosition {
-    pub idx: usize,
-    pub line: usize,
+    pub idx_start: usize,
+    pub idx_end: usize,
+    pub line_start: usize,
+    pub line_end: usize,
     pub line_idx_start: usize,
     pub line_idx_end: usize,
 }
 
 impl CodePosition {
     pub fn one_char(idx: usize, line: usize, line_idx: usize) -> Self {
-        CodePosition {idx, line, line_idx_start: line_idx, line_idx_end: line_idx + 1}
+        CodePosition { idx_start: idx, idx_end: idx, line_start: line, line_end: line, line_idx_start: line_idx - 1, line_idx_end: line_idx}
     }
     
     pub fn eof() -> Self {
-        CodePosition {idx: 0, line: 0, line_idx_start: 0, line_idx_end: 0}
+        CodePosition { idx_start: 0, line_start: 0, idx_end: 0, line_end: 0, line_idx_start: 0, line_idx_end: 0}
     }
     
     pub fn is_eof(&self) -> bool {
-        [self.idx, self.line, self.line_idx_start, self.line_idx_end].iter().all(|t| {*t==0})
+        [self.idx_start, self.line_start, self.line_idx_start, self.line_idx_end].iter().all(|t| {*t==0})
+    }
+    
+    pub fn merge(&self, other: Self) -> Self {
+        Self {idx_start: self.idx_start, idx_end: other.idx_end, line_start: self.line_start,
+            line_end: other.line_end, line_idx_start: self.line_idx_start, 
+            line_idx_end: other.line_idx_end}
     }
 }
 
 impl CodePosition {
-    pub fn range(&self) -> Range<usize> {
-        self.line_idx_start..self.line_idx_end
+    pub fn range(&self, offset: usize) -> Range<usize> {
+        self.line_idx_start + offset..self.line_idx_end + offset
     }
 }
 
@@ -112,11 +129,12 @@ impl Scanner {
         match self.characters.get(self.cursor) {
             Some(character) => {
                 self.cursor += 1;
+                self.line_idx += 1;
                 if *character == '\n' {
                     self.line += 1;
                     self.line_idx = 0;
                 }
-
+                
                 Some(character)
             }
             None => None,
@@ -186,24 +204,40 @@ fn tokenizer(scanner: &mut Scanner) -> CodeResult<Option<Token>> {
                 }
             }
 
-            '(' | ')' | ',' | '.' | '+' | '-' | '/' | '*' | ':' | ';' => {
+            '(' | ')' | ',' | '.' | '+' | '/' | '*' | ':' | ';' | '{' | '}' => {
                 let token_type = match current {
                     '(' => TokenType::LParen,
                     ')' => TokenType::RParen,
                     ',' => TokenType::Comma,
                     '.' => TokenType::Dot,
                     '+' => TokenType::Plus,
-                    '-' => TokenType::Minus,
                     '/' => TokenType::Slash,
                     '*' => TokenType::Star,
                     '|' => TokenType::Pipe,
-                    '&' => TokenType::And,
                     ':' => TokenType::Colon,
                     ';' => TokenType::SemiColon,
+                    '{' => TokenType::LBrace,
+                    '}' => TokenType::RBrace,
                     _ => unreachable!(),
                 };
                 scanner.pop();
                 return Ok(scanner.this_as_token(token_type));
+            }
+            '&' => {
+                scanner.pop();
+                if let Some('&') = scanner.peek() {
+                    scanner.pop();
+                    return Ok(scanner.this_as_token(TokenType::Ref));
+                }
+                return Ok(scanner.this_as_token(TokenType::And));
+            }
+            '-' => {
+                scanner.pop();
+                if let Some('>') = scanner.peek() {
+                    scanner.pop();
+                    return Ok(scanner.this_as_token(TokenType::As));
+                }
+                return Ok(scanner.this_as_token(TokenType::Minus));
             }
             '>' => {
                 scanner.pop();
@@ -255,16 +289,20 @@ fn tokenizer(scanner: &mut Scanner) -> CodeResult<Option<Token>> {
                     "import" => TokenType::Import,
                     "extern" => TokenType::Extern,
                     "mut" => TokenType::Mut,
+                    "private" => TokenType::Private,
+                    "return" => TokenType::Return,
                     _ => TokenType::Identifier,
                 };
                 return Ok(Some(Token {
                     content: identifier.clone(),
                     token_type,
                     code_position: CodePosition {
-                        idx: start_pos,
-                        line: scanner.line,
-                        line_idx_start: scanner.line_idx,
-                        line_idx_end: scanner.line_idx + identifier.len(),
+                        idx_start: start_pos,
+                        idx_end: scanner.cursor,
+                        line_start: scanner.line,
+                        line_end: scanner.line,
+                        line_idx_start: scanner.line_idx - identifier.len() ,
+                        line_idx_end: scanner.line_idx,
                     },
                 }));
             }
@@ -293,10 +331,12 @@ fn tokenizer(scanner: &mut Scanner) -> CodeResult<Option<Token>> {
                     content: number.clone(),
                     token_type,
                     code_position: CodePosition {
-                        idx: start_pos,
-                        line: scanner.line,
-                        line_idx_start: scanner.line_idx,
-                        line_idx_end: scanner.line_idx + number.len(),
+                        idx_start: start_pos,
+                        idx_end: scanner.cursor,
+                        line_start: scanner.line,
+                        line_end: scanner.line,
+                        line_idx_start: scanner.line_idx - number.len(),
+                        line_idx_end: scanner.line_idx,
                     },
                 }));
             }
@@ -313,10 +353,12 @@ fn tokenizer(scanner: &mut Scanner) -> CodeResult<Option<Token>> {
                             content: string.clone(),
                             token_type: TokenType::String,
                             code_position: CodePosition {
-                                idx: start_pos,
-                                line: scanner.line,
-                                line_idx_start: scanner.line_idx,
-                                line_idx_end: scanner.line_idx + string.len(),
+                                idx_start: start_pos,
+                                idx_end: start_pos,
+                                line_start: scanner.line,
+                                line_end: scanner.line,
+                                line_idx_start: scanner.line_idx - string.len(),
+                                line_idx_end: scanner.line_idx,
                             },
                         }));
                     } else {
