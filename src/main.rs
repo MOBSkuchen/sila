@@ -30,7 +30,13 @@ fn compile_job(file_manager: &FileManager) -> CodeResult<()> {
 }
 
 fn _compile(_: &ArgumentParser, args: &Vec<String>) -> bool {
-    let file_manager = FileManager::new_from(args[0].clone()).expect("FileManager error");
+    let file_manager_r = FileManager::new_from(args[0].clone());
+    if file_manager_r.is_err() {
+        file_manager_r.unwrap_err().output();
+        return true;
+    }
+    
+    let file_manager = file_manager_r.unwrap();
 
     let x = compile_job(&file_manager);
     if x.is_err() {

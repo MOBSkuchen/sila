@@ -1,5 +1,5 @@
-use std::fs;
-use std::path::PathBuf;
+use std::{fs, io};
+use std::path::{Path, PathBuf};
 use annotate_snippets::Snippet;
 use crate::comp_errors::{CompResult, CompilerError};
 use crate::lexer::CodePosition;
@@ -8,8 +8,18 @@ pub fn pathbuf_to_string(p: PathBuf) -> String {
     p.into_os_string().into_string().expect("Failed to convert pathbuf to string").to_string()
 }
 
-pub fn full_path(p: &str) -> std::io::Result<PathBuf> {
-    fs::canonicalize(PathBuf::from(p))
+fn resolve_path<P: AsRef<Path>>(input_path: P) -> io::Result<PathBuf> {
+    let path = input_path.as_ref();
+    let absolute_path = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(path)
+    };
+    if absolute_path.exists() || absolute_path.parent().map(|p| p.exists()).unwrap_or(false) {
+        Ok(absolute_path)
+    } else {
+        Err(io::Error::new(io::ErrorKind::NotFound, "Invalid path"))
+    }
 }
 
 pub fn relative_path(p: &str) -> &str {
@@ -19,32 +29,34 @@ pub fn relative_path(p: &str) -> &str {
 }
 
 
+#[derive(Debug)]
 pub struct FileManager {
+    pub input_file: String,
     pub file_path: PathBuf,
     content: String
 }
 
 impl FileManager {
-    pub fn new(file_path: PathBuf) -> CompResult<Self> {
+    pub fn new(file_path: PathBuf, input_file: String) -> CompResult<Self> {
         if !file_path.exists() {
-            Err(CompilerError::FileNotAccessible(pathbuf_to_string((&file_path).to_owned()),
+            Err(CompilerError::FileNotAccessible(input_file,
                                              !file_path.parent().is_some_and(|t| {t.exists()})))
         } else {
             let content = fs::read_to_string(&file_path);
             if content.is_err() {
-                Err(CompilerError::FileCorrupted(pathbuf_to_string(file_path)))
+                Err(CompilerError::FileCorrupted(input_file))
             } else {
-                Ok(Self { file_path, content: content.unwrap() })
+                Ok(Self { input_file, file_path, content: content.unwrap() })
             }
         }
     }
 
     pub fn new_from(file: String) -> CompResult<Self> {
-        let x = full_path(&file);
+        let x = resolve_path(&file);
         if x.is_err() {
             Err(CompilerError::FileNotAccessible(file, true))
         } else {
-            Self::new(x.unwrap())
+            Self::new(x.unwrap(), file)
         }
     }
 

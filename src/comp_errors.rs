@@ -1,4 +1,6 @@
 use std::fmt;
+use std::fmt::format;
+use colorize_rs::{AnsiColor, Color};
 use crate::codeviz::print_code_error;
 use crate::filemanager::FileManager;
 use crate::lexer::{CodePosition, Token, TokenType};
@@ -7,6 +9,22 @@ use crate::lexer::{CodePosition, Token, TokenType};
 pub enum CompilerError {
     FileNotAccessible(String, bool),
     FileCorrupted(String)
+}
+
+impl CompilerError {
+    pub fn output(&self) {
+        match self {
+            CompilerError::FileNotAccessible(f, s) => {
+                println!("Could not read input file `{}`, because the file is not accessible.", f.to_string().bold().b_yellow().underlined());
+                if *s {
+                    println!("{}", "This is because the directory does not exist!".bold().red());
+                }
+            }
+            CompilerError::FileCorrupted(f) => {
+                println!("Could not read input file `{}`, because the file is corrupted or otherwise not understandable.", f.to_string().bold().underlined())
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
