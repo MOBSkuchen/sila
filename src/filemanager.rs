@@ -51,29 +51,45 @@ impl FileManager {
     pub fn get_content(&self) -> String {
         self.content.clone()
     }
+    
+    pub fn get_surrounding_slice(&self, line_index: usize) -> (String, usize) {
+        let lines: Vec<&str> = self.content.lines().collect();
+        let total_lines = lines.len();
 
-    pub fn get_content_slice(&self, line_start: usize, mut line_end: usize) -> String {
-        if line_end > (self.content.len() - 1) {
-            line_end = self.content.len() - 1
+        if total_lines == 0 {
+            return (String::new(), 0);
         }
-        let lines: Vec<_> = self.content.lines().map(|x| {x.to_string()}).collect();
-        lines[line_start..line_end].join("\n")
+
+        let mut snippet = String::new();
+        let mut offset = 0;
+
+        if line_index > 0 {
+            snippet.push_str(lines[line_index - 1]);
+            snippet.push('\n');
+            offset += lines[line_index - 1].len() + 1;
+        }
+
+        if line_index < total_lines {
+            snippet.push_str(lines[line_index]);
+            snippet.push('\n');
+        }
+
+        if line_index + 1 < total_lines {
+            snippet.push_str(lines[line_index + 1]);
+            snippet.push('\n');
+        }
+
+        (snippet, offset)
     }
 
-    pub fn get_surrounding_slice<'a>(&self, mut line_start: usize) -> String {
-        if line_start == 0 {
-            line_start = 1;
-        }
-        self.get_content_slice(line_start - 1, line_start + 1)
-    }
 
-    pub fn get_code_snippet(&self, code_position: &CodePosition) -> Snippet {
+    pub fn get_code_snippet(&self, code_position: &CodePosition) -> (Snippet, usize) {
         // TODO: Remove this super evil magic trick
-        let sor_slc = self.get_surrounding_slice(code_position.line).leak();
+        let sor_slc = self.get_surrounding_slice(code_position.line_start);
         // There is some weird stuff going on here
         let clean_path = &self.file_path.to_str().unwrap()[4..];
-        Snippet::source(sor_slc)
-            .line_start(code_position.line)
-            .origin(relative_path(clean_path).to_string().leak())
+        (Snippet::source(sor_slc.0.leak())
+            .line_start(if code_position.line_start == 0 {code_position.line_start+1} else {code_position.line_start})
+            .origin(relative_path(clean_path).to_string().leak()), sor_slc.1)
     }
 }
