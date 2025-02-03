@@ -1,12 +1,8 @@
-use std::{fs, io};
-use std::path::{Path, PathBuf};
-use annotate_snippets::Snippet;
 use crate::comp_errors::{CompResult, CompilerError};
 use crate::lexer::CodePosition;
-
-pub fn pathbuf_to_string(p: PathBuf) -> String {
-    p.into_os_string().into_string().expect("Failed to convert pathbuf to string").to_string()
-}
+use annotate_snippets::Snippet;
+use std::path::{Path, PathBuf};
+use std::{fs, io};
 
 fn resolve_path<P: AsRef<Path>>(input_path: P) -> io::Result<PathBuf> {
     let path = input_path.as_ref();
@@ -25,28 +21,41 @@ fn resolve_path<P: AsRef<Path>>(input_path: P) -> io::Result<PathBuf> {
 pub fn relative_path(p: &str) -> &str {
     // This *should* always work if compiler is accessing the nested files
     // Otherwise, we will return the full path
-    p.strip_prefix(&std::env::current_dir().unwrap().to_str().unwrap().to_string()).or(Some(p)).expect("There is no reason")
+    p.strip_prefix(
+        &std::env::current_dir()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string(),
+    )
+    .or(Some(p))
+    .expect("There is no reason")
 }
-
 
 #[derive(Debug)]
 pub struct FileManager {
     pub input_file: String,
     pub file_path: PathBuf,
-    content: String
+    content: String,
 }
 
 impl FileManager {
     pub fn new(file_path: PathBuf, input_file: String) -> CompResult<Self> {
         if !file_path.exists() {
-            Err(CompilerError::FileNotAccessible(input_file,
-                                             !file_path.parent().is_some_and(|t| {t.exists()})))
+            Err(CompilerError::FileNotAccessible(
+                input_file,
+                !file_path.parent().is_some_and(|t| t.exists()),
+            ))
         } else {
             let content = fs::read_to_string(&file_path);
             if content.is_err() {
                 Err(CompilerError::FileCorrupted(input_file))
             } else {
-                Ok(Self { input_file, file_path, content: content.unwrap() })
+                Ok(Self {
+                    input_file,
+                    file_path,
+                    content: content.unwrap(),
+                })
             }
         }
     }
@@ -63,7 +72,7 @@ impl FileManager {
     pub fn get_content(&self) -> String {
         self.content.clone()
     }
-    
+
     pub fn get_surrounding_slice(&self, line_index: usize) -> (String, usize) {
         let lines: Vec<&str> = self.content.lines().collect();
         let total_lines = lines.len();
@@ -94,14 +103,20 @@ impl FileManager {
         (snippet, offset)
     }
 
-
     pub fn get_code_snippet(&self, code_position: &CodePosition) -> (Snippet, usize) {
         // TODO: Remove this super evil magic trick
         let sor_slc = self.get_surrounding_slice(code_position.line_start);
         // There is some weird stuff going on here
         let clean_path = &self.file_path.to_str().unwrap()[4..];
-        (Snippet::source(sor_slc.0.leak())
-            .line_start(if code_position.line_start == 0 {code_position.line_start+1} else {code_position.line_start})
-            .origin(relative_path(clean_path).to_string().leak()), sor_slc.1)
+        (
+            Snippet::source(sor_slc.0.leak())
+                .line_start(if code_position.line_start == 0 {
+                    code_position.line_start + 1
+                } else {
+                    code_position.line_start
+                })
+                .origin(relative_path(clean_path).to_string().leak()),
+            sor_slc.1,
+        )
     }
 }

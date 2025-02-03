@@ -1,23 +1,29 @@
-use std::fmt;
-use std::fmt::format;
-use colorize_rs::{AnsiColor, Color};
 use crate::codeviz::print_code_error;
 use crate::filemanager::FileManager;
 use crate::lexer::{CodePosition, Token, TokenType};
+use colorize_rs::{AnsiColor, Color};
+use std::fmt;
+use std::fmt::format;
 
 #[derive(Debug)]
 pub enum CompilerError {
     FileNotAccessible(String, bool),
-    FileCorrupted(String)
+    FileCorrupted(String),
 }
 
 impl CompilerError {
     pub fn output(&self) {
         match self {
             CompilerError::FileNotAccessible(f, s) => {
-                println!("Could not read input file `{}`, because the file is not accessible.", f.to_string().bold().b_yellow().underlined());
+                println!(
+                    "Could not read input file `{}`, because the file is not accessible.",
+                    f.to_string().bold().b_yellow().underlined()
+                );
                 if *s {
-                    println!("{}", "This is because the directory does not exist!".bold().red());
+                    println!(
+                        "{}",
+                        "This is because the directory does not exist!".bold().red()
+                    );
                 }
             }
             CompilerError::FileCorrupted(f) => {
@@ -33,14 +39,14 @@ pub enum CodeErrorType {
     LexerUnexpectedChar,
     LexerEndOfFile,
     ParserUnexpectedToken,
-    MissingTokenError
+    MissingTokenError,
 }
 
 #[derive(Debug)]
 pub enum CodeWarningType {
     DeadCode,
     UnnecessaryCode,
-    DiscouragedPractice
+    DiscouragedPractice,
 }
 
 #[derive(Debug)]
@@ -54,35 +60,83 @@ pub struct CodeError {
 }
 
 impl CodeError {
-    pub fn new(position: CodePosition, code_error_type: CodeErrorType, title: String, pointer: Option<String>, footer: String, notes: Vec<String>) -> Self {
-        Self {position, code_error_type, title, footer, pointer, notes }
+    pub fn new(
+        position: CodePosition,
+        code_error_type: CodeErrorType,
+        title: String,
+        pointer: Option<String>,
+        footer: String,
+        notes: Vec<String>,
+    ) -> Self {
+        Self {
+            position,
+            code_error_type,
+            title,
+            footer,
+            pointer,
+            notes,
+        }
     }
-    
+
     pub fn placeholder() -> Self {
         panic!("Please remove this placeholder!");
     }
 
-    pub fn new_unexpected_token_error(token: &Token, expected: TokenType, extra: Option<String>) -> Self {
-        Self::new(token.code_position, CodeErrorType::ParserUnexpectedToken, "Unexpected Token".to_string(),
-                  Some(format!("Should be followed by `{}`", expected)), 
-                  format!("Expected another token `{}`, but got `{}`", expected, token.token_type),
-                  if extra.is_some() {vec![extra.unwrap()]} else {vec![]})
+    pub fn new_unexpected_token_error(
+        token: &Token,
+        expected: TokenType,
+        extra: Option<String>,
+    ) -> Self {
+        Self::new(
+            token.code_position,
+            CodeErrorType::ParserUnexpectedToken,
+            "Unexpected Token".to_string(),
+            Some(format!("Should be followed by `{}`", expected)),
+            format!(
+                "Expected another token `{}`, but got `{}`",
+                expected, token.token_type
+            ),
+            if extra.is_some() {
+                vec![extra.unwrap()]
+            } else {
+                vec![]
+            },
+        )
     }
 
     pub fn new_unknown_char_error(position: CodePosition, c: char) -> Self {
-        Self::new(position, CodeErrorType::LexerUnknownChar, "Unknown character".to_string(), 
-                  Some("This one".to_string()), format!("Character `{}` is weird!", c), vec![])
+        Self::new(
+            position,
+            CodeErrorType::LexerUnknownChar,
+            "Unknown character".to_string(),
+            Some("This one".to_string()),
+            format!("Character `{}` is weird!", c),
+            vec![],
+        )
     }
 
     pub fn new_eof_error() -> Self {
-        Self::new(CodePosition::eof(), CodeErrorType::LexerEndOfFile, "End of File".to_string(), None, "Premature end of file!".to_string(), vec![])
+        Self::new(
+            CodePosition::eof(),
+            CodeErrorType::LexerEndOfFile,
+            "End of File".to_string(),
+            None,
+            "Premature end of file!".to_string(),
+            vec![],
+        )
     }
 
     pub fn missing_token_error(last_token: &Token) -> Self {
-        Self::new(last_token.code_position, CodeErrorType::MissingTokenError, "Missing token".to_string(), Some("After this".to_string()),
-                  "Premature end of file!".to_string(), vec![])
+        Self::new(
+            last_token.code_position,
+            CodeErrorType::MissingTokenError,
+            "Missing token".to_string(),
+            Some("After this".to_string()),
+            "Premature end of file!".to_string(),
+            vec![],
+        )
     }
-    
+
     pub fn visualize_error(self, file_manager: &FileManager) {
         print_code_error(self, file_manager)
     }
@@ -103,17 +157,40 @@ pub struct CodeWarning {
     pub title: String,
     pub footer: String,
     pub pointer: Option<String>,
-    pub notes: Vec<String>
+    pub notes: Vec<String>,
 }
 
 impl CodeWarning {
-    pub fn new(position: CodePosition, code_warn_type: CodeWarningType, title: String, footer: String, pointer: Option<String>, notes: Vec<String>) -> Self {
-        Self {position, code_warn_type, title, footer, pointer, notes }
+    pub fn new(
+        position: CodePosition,
+        code_warn_type: CodeWarningType,
+        title: String,
+        footer: String,
+        pointer: Option<String>,
+        notes: Vec<String>,
+    ) -> Self {
+        Self {
+            position,
+            code_warn_type,
+            title,
+            footer,
+            pointer,
+            notes,
+        }
     }
-    
+
     pub fn new_unnecessary_code(position: CodePosition, extra: Option<String>) -> Self {
-        Self::new(position, CodeWarningType::UnnecessaryCode, "Unnecessary code".to_string(),
-                  "This code does not change the outcome".to_string(), None, 
-                  if extra.is_some() {vec![extra.unwrap()]} else {vec!["You should remove it".to_string()]})
+        Self::new(
+            position,
+            CodeWarningType::UnnecessaryCode,
+            "Unnecessary code".to_string(),
+            "This code does not change the outcome".to_string(),
+            None,
+            if extra.is_some() {
+                vec![extra.unwrap()]
+            } else {
+                vec!["You should remove it".to_string()]
+            },
+        )
     }
 }

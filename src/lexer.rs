@@ -1,7 +1,7 @@
+use crate::comp_errors::{CodeError, CodeResult};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::ops::Range;
-use crate::comp_errors::{CodeError, CodeResult};
 
 #[derive(PartialEq, Copy, Debug, Clone)]
 pub enum TokenType {
@@ -17,7 +17,7 @@ pub enum TokenType {
     String,
     NumberInt,
     NumberFloat,
-    
+
     LParen,
     RParen,
     Comma,
@@ -44,54 +44,54 @@ pub enum TokenType {
     Ref,
     Private,
     Return,
-    
+
     // Virtual types
     Expression,
-    Statement
+    Statement,
 }
-
 
 impl TokenType {
     pub fn visualize(&self) -> String {
         (match self {
-            TokenType::Define => {"def"}
-            TokenType::Export => {"export"}
-            TokenType::Import => {"import"}
-            TokenType::Extern => {"extern"}
-            TokenType::Mut => {"mut"}
-            TokenType::Identifier => {"Identifier"}
-            TokenType::String => {"String"}
-            TokenType::NumberInt => {"Integer"}
-            TokenType::NumberFloat => {"Floating-point"}
-            TokenType::LParen => {"("}
-            TokenType::RParen => {")"}
-            TokenType::Comma => {","}
-            TokenType::Dot => {"."}
-            TokenType::Plus => {"+"}
-            TokenType::Minus => {"-"}
-            TokenType::Slash => {"/"}
-            TokenType::Star => {"*"}
-            TokenType::Colon => {":"}
-            TokenType::SemiColon => {";"}
-            TokenType::Greater => {">"}
-            TokenType::Lesser => {"<"}
-            TokenType::Pipe => {"|"}
-            TokenType::And => {"&"}
-            TokenType::Ref => {"&"}
-            TokenType::Exclamation => {"!"}
-            TokenType::Equals => {"="}
-            TokenType::DoubleEquals => {"=="}
-            TokenType::NotEquals => {"!="}
-            TokenType::GreaterEquals => {">="}
-            TokenType::LesserEquals => {"<="}
-            TokenType::RBrace => {"}"}
-            TokenType::LBrace => {"{"}
-            TokenType::As => {"->"}
-            TokenType::Private => {"private"}
-            TokenType::Return => {"return"}
-            TokenType::Expression => {"Expression"}
-            TokenType::Statement => {"Statement"},
-        }).to_string()
+            TokenType::Define => "def",
+            TokenType::Export => "export",
+            TokenType::Import => "import",
+            TokenType::Extern => "extern",
+            TokenType::Mut => "mut",
+            TokenType::Identifier => "Identifier",
+            TokenType::String => "String",
+            TokenType::NumberInt => "Integer",
+            TokenType::NumberFloat => "Floating-point",
+            TokenType::LParen => "(",
+            TokenType::RParen => ")",
+            TokenType::Comma => ",",
+            TokenType::Dot => ".",
+            TokenType::Plus => "+",
+            TokenType::Minus => "-",
+            TokenType::Slash => "/",
+            TokenType::Star => "*",
+            TokenType::Colon => ":",
+            TokenType::SemiColon => ";",
+            TokenType::Greater => ">",
+            TokenType::Lesser => "<",
+            TokenType::Pipe => "|",
+            TokenType::And => "&",
+            TokenType::Ref => "&",
+            TokenType::Exclamation => "!",
+            TokenType::Equals => "=",
+            TokenType::DoubleEquals => "==",
+            TokenType::NotEquals => "!=",
+            TokenType::GreaterEquals => ">=",
+            TokenType::LesserEquals => "<=",
+            TokenType::RBrace => "}",
+            TokenType::LBrace => "{",
+            TokenType::As => "->",
+            TokenType::Private => "private",
+            TokenType::Return => "return",
+            TokenType::Expression => "Expression",
+            TokenType::Statement => "Statement",
+        })
+        .to_string()
     }
 }
 
@@ -113,21 +113,47 @@ pub struct CodePosition {
 
 impl CodePosition {
     pub fn one_char(idx: usize, line: usize, line_idx: usize) -> Self {
-        CodePosition { idx_start: idx, idx_end: idx, line_start: line, line_end: line, line_idx_start: line_idx - 1, line_idx_end: line_idx}
+        CodePosition {
+            idx_start: idx,
+            idx_end: idx,
+            line_start: line,
+            line_end: line,
+            line_idx_start: line_idx - 1,
+            line_idx_end: line_idx,
+        }
     }
-    
+
     pub fn eof() -> Self {
-        CodePosition { idx_start: 0, line_start: 0, idx_end: 0, line_end: 0, line_idx_start: 0, line_idx_end: 0}
+        CodePosition {
+            idx_start: 0,
+            line_start: 0,
+            idx_end: 0,
+            line_end: 0,
+            line_idx_start: 0,
+            line_idx_end: 0,
+        }
     }
-    
+
     pub fn is_eof(&self) -> bool {
-        [self.idx_start, self.line_start, self.line_idx_start, self.line_idx_end].iter().all(|t| {*t==0})
+        [
+            self.idx_start,
+            self.line_start,
+            self.line_idx_start,
+            self.line_idx_end,
+        ]
+        .iter()
+        .all(|t| *t == 0)
     }
-    
+
     pub fn merge(&self, other: Self) -> Self {
-        Self {idx_start: self.idx_start, idx_end: other.idx_end, line_start: self.line_start,
-            line_end: other.line_end, line_idx_start: self.line_idx_start, 
-            line_idx_end: other.line_idx_end}
+        Self {
+            idx_start: self.idx_start,
+            idx_end: other.idx_end,
+            line_start: self.line_start,
+            line_end: other.line_end,
+            line_idx_start: self.line_idx_start,
+            line_idx_end: other.line_idx_end,
+        }
     }
 }
 
@@ -141,12 +167,22 @@ impl CodePosition {
 pub struct Token {
     pub content: String,
     pub token_type: TokenType,
-    pub code_position: CodePosition
+    pub code_position: CodePosition,
 }
 
 impl Token {
-    pub fn from_one(idx: usize, line: usize, line_idx: usize, content: char, token_type: TokenType) -> Self {
-        Self {content: content.to_string(), token_type, code_position: CodePosition::one_char(idx, line, line_idx)}
+    pub fn from_one(
+        idx: usize,
+        line: usize,
+        line_idx: usize,
+        content: char,
+        token_type: TokenType,
+    ) -> Self {
+        Self {
+            content: content.to_string(),
+            token_type,
+            code_position: CodePosition::one_char(idx, line, line_idx),
+        }
     }
 }
 
@@ -166,7 +202,7 @@ impl Scanner {
             characters: string.chars().collect(),
         }
     }
-    
+
     /// Returns the next character without advancing the cursor.
     /// AKA "lookahead"
     pub fn peek(&self) -> Option<&char> {
@@ -188,33 +224,39 @@ impl Scanner {
                     self.line += 1;
                     self.line_idx = 0;
                 }
-                
+
                 Some(character)
             }
             None => None,
         }
     }
-    
+
     pub fn current(&self) -> Option<&char> {
         match self.characters.get(self.cursor) {
-            Some(character) => { Some(character) }
+            Some(character) => Some(character),
             None => None,
         }
     }
-    
+
     pub fn previous(&self) -> Option<&char> {
         match self.characters.get(self.cursor - 1) {
-            Some(character) => { Some(character) }
+            Some(character) => Some(character),
             None => None,
         }
     }
-    
+
     pub fn this_as_token(&self, token_type: TokenType) -> Option<Token> {
         let c = self.previous();
         if c.is_none() {
             None
         } else {
-            Some(Token::from_one(self.cursor, self.line, self.line_idx, *c.unwrap(), token_type))
+            Some(Token::from_one(
+                self.cursor,
+                self.line,
+                self.line_idx,
+                *c.unwrap(),
+                token_type,
+            ))
         }
     }
 
@@ -222,12 +264,17 @@ impl Scanner {
         if self.is_done() {
             None
         } else {
-            Some(CodePosition::one_char(self.cursor, self.line, self.line_idx))
+            Some(CodePosition::one_char(
+                self.cursor,
+                self.line,
+                self.line_idx,
+            ))
         }
     }
-    
+
     pub fn this_as_codepos2(&self) -> CodePosition {
-        self.this_as_codepos().expect("This should not happen -> constructing code pos")
+        self.this_as_codepos()
+            .expect("This should not happen -> constructing code pos")
     }
 }
 
@@ -336,7 +383,9 @@ fn tokenizer(scanner: &mut Scanner) -> CodeResult<Option<Token>> {
                         break;
                     }
                 }
-                let identifier: String = scanner.characters[start_pos..scanner.cursor].iter().collect();
+                let identifier: String = scanner.characters[start_pos..scanner.cursor]
+                    .iter()
+                    .collect();
                 let token_type = match identifier.as_str() {
                     "def" => TokenType::Define,
                     "export" => TokenType::Export,
@@ -355,7 +404,7 @@ fn tokenizer(scanner: &mut Scanner) -> CodeResult<Option<Token>> {
                         idx_end: scanner.cursor,
                         line_start: scanner.line,
                         line_end: scanner.line,
-                        line_idx_start: scanner.line_idx - identifier.len() ,
+                        line_idx_start: scanner.line_idx - identifier.len(),
                         line_idx_end: scanner.line_idx,
                     },
                 }));
@@ -375,7 +424,9 @@ fn tokenizer(scanner: &mut Scanner) -> CodeResult<Option<Token>> {
                         break;
                     }
                 }
-                let number: String = scanner.characters[start_pos..scanner.cursor].iter().collect();
+                let number: String = scanner.characters[start_pos..scanner.cursor]
+                    .iter()
+                    .collect();
                 let token_type = if is_float {
                     TokenType::NumberFloat
                 } else {
@@ -401,7 +452,9 @@ fn tokenizer(scanner: &mut Scanner) -> CodeResult<Option<Token>> {
                 let start_pos = scanner.cursor;
                 while let Some(next) = scanner.peek() {
                     if *next == '"' {
-                        let string: String = scanner.characters[start_pos..scanner.cursor].iter().collect();
+                        let string: String = scanner.characters[start_pos..scanner.cursor]
+                            .iter()
+                            .collect();
                         scanner.pop(); // Consume closing quote
                         return Ok(Some(Token {
                             content: string.clone(),
@@ -422,7 +475,10 @@ fn tokenizer(scanner: &mut Scanner) -> CodeResult<Option<Token>> {
                 return Err(CodeError::new_eof_error());
             }
             _ => {
-                return Err(CodeError::new_unknown_char_error(scanner.this_as_codepos2(), *current));
+                return Err(CodeError::new_unknown_char_error(
+                    scanner.this_as_codepos2(),
+                    *current,
+                ));
             }
         }
     }
@@ -437,7 +493,7 @@ pub fn tokenize(content: String) -> CodeResult<Vec<Token>> {
         if token.is_some() {
             tokens.push(token.unwrap())
         } else {
-            return Ok(tokens)
+            return Ok(tokens);
         }
     }
 }

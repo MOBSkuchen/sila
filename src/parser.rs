@@ -5,12 +5,15 @@ use crate::lexer::{CodePosition, Token, TokenType};
 
 pub struct Parser<'a> {
     tokens: Vec<Token>,
-    file_manager: &'a FileManager
+    file_manager: &'a FileManager,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(tokens: Vec<Token>, file_manager: &'a FileManager) -> Self {
-        Self { tokens, file_manager }
+        Self {
+            tokens,
+            file_manager,
+        }
     }
 
     fn peek(&self, pointer: &usize) -> Option<&Token> {
@@ -38,7 +41,7 @@ impl<'a> Parser<'a> {
 
     fn match_next_token(&self, pointer: &mut usize, token_type: TokenType) -> CodeResult<bool> {
         self.is_done_err(pointer)?;
-        if let Some(token) = self.tokens.get(*pointer+1) {
+        if let Some(token) = self.tokens.get(*pointer + 1) {
             if token.token_type == token_type {
                 self.advance(pointer);
                 return Ok(true);
@@ -46,34 +49,48 @@ impl<'a> Parser<'a> {
         }
         Ok(false)
     }
-    
-    fn consume(&self, pointer: &mut usize, expected: TokenType, note: Option<String>) -> CodeResult<&Token> {
+
+    fn consume(
+        &self,
+        pointer: &mut usize,
+        expected: TokenType,
+        note: Option<String>,
+    ) -> CodeResult<&Token> {
         self.is_done_err(pointer)?;
         if self.match_token(pointer, expected)? {
             Ok(self.previous(pointer).unwrap())
         } else {
-            Err(CodeError::new_unexpected_token_error(self.current(pointer).or(self.previous(pointer)).unwrap(), expected, note))
+            Err(CodeError::new_unexpected_token_error(
+                self.current(pointer).or(self.previous(pointer)).unwrap(),
+                expected,
+                note,
+            ))
         }
     }
-    
+
     fn previous(&self, pointer: &usize) -> Option<&Token> {
-        self.tokens.get(*pointer-1)
+        self.tokens.get(*pointer - 1)
     }
 
     fn current(&self, pointer: &usize) -> Option<&Token> {
         self.tokens.get(*pointer)
     }
-    
+
     fn warning(&self, code_warning: CodeWarning) {
         print_code_warn(code_warning, self.file_manager)
     }
-    
+
     fn codepos_from_space(&self, s: usize, e: &usize, sub_off: usize) -> CodePosition {
         let start = self.tokens.get(s).unwrap().code_position;
-        let end = self.tokens.get(*e-sub_off).unwrap().code_position;
-        CodePosition { idx_start: start.idx_start, idx_end: end.idx_end,
-            line_start: start.line_start, line_end: end.line_end, 
-            line_idx_start: start.line_idx_start, line_idx_end: end.line_idx_end}
+        let end = self.tokens.get(*e - sub_off).unwrap().code_position;
+        CodePosition {
+            idx_start: start.idx_start,
+            idx_end: end.idx_end,
+            line_start: start.line_start,
+            line_end: end.line_end,
+            line_idx_start: start.line_idx_start,
+            line_idx_end: end.line_idx_end,
+        }
     }
 
     pub fn parse(&self, pointer: &mut usize) -> CodeResult<Vec<ASTNode>> {
@@ -118,7 +135,10 @@ impl<'a> Parser<'a> {
     pub fn parse_function(&self, pointer: &mut usize) -> CodeResult<ASTNode> {
         let name = self.consume(pointer, TokenType::Identifier, None)?;
 
-        assert_eq!(self.previous(pointer).unwrap().token_type, TokenType::Identifier);
+        assert_eq!(
+            self.previous(pointer).unwrap().token_type,
+            TokenType::Identifier
+        );
 
         self.consume(pointer, TokenType::LParen, None)?;
 
@@ -128,7 +148,7 @@ impl<'a> Parser<'a> {
 
         self.consume(pointer, TokenType::Colon, None)?;
         let return_type = self.parse_type(pointer)?;
-        
+
         let body = self.parse_block(pointer)?;
 
         Ok(ASTNode::FunctionDef(
@@ -158,30 +178,34 @@ impl<'a> Parser<'a> {
             }
         }
 
-        self.consume(pointer, TokenType::RBrace, Some("You may be missing a semi colon".to_string()))?;
+        self.consume(
+            pointer,
+            TokenType::RBrace,
+            Some("You may be missing a semi colon".to_string()),
+        )?;
 
         Ok(statements)
     }
-    
-    fn parse_function_call(&self, pointer: &mut usize) -> CodeResult<ASTNode>  {
+
+    fn parse_function_call(&self, pointer: &mut usize) -> CodeResult<ASTNode> {
         let name = self.previous(pointer).unwrap();
         self.consume(pointer, TokenType::LParen, None)?;
         let mut paras = vec![];
         while let Some(tok) = self.peek(pointer) {
             paras.push(Box::new(self.parse_expression(pointer)?));
             if self.match_token(pointer, TokenType::RParen)? {
-                break
+                break;
             }
             self.consume(pointer, TokenType::Comma, Some("Add a comma".to_string()))?;
         }
         Ok(ASTNode::FunctionCall(name, paras))
     }
-    
+
     fn parse_return(&self, pointer: &mut usize) -> CodeResult<ASTNode> {
         self.consume(pointer, TokenType::Return, None)?;
         Ok(ASTNode::Return(Box::new(self.parse_expression(pointer)?)))
     }
-    
+
     fn parse_statement(&self, pointer: &mut usize) -> CodeResult<ASTNode> {
         let token = self.peek(pointer);
 
@@ -193,35 +217,45 @@ impl<'a> Parser<'a> {
                     } else {
                         let a = *pointer;
                         let res = self.parse_expression(pointer);
-                        self.warning(CodeWarning::new_unnecessary_code(self.codepos_from_space(a, pointer, 1), None));
+                        self.warning(CodeWarning::new_unnecessary_code(
+                            self.codepos_from_space(a, pointer, 1),
+                            None,
+                        ));
                         res
                     }
-                } 
+                }
                 TokenType::NumberInt | TokenType::NumberFloat => {
                     let a = *pointer;
                     let res = self.parse_expression(pointer);
-                    self.warning(CodeWarning::new_unnecessary_code(self.codepos_from_space(a, pointer, 1), None));
+                    self.warning(CodeWarning::new_unnecessary_code(
+                        self.codepos_from_space(a, pointer, 1),
+                        None,
+                    ));
                     res
                 }
-                TokenType::Return => {
-                    self.parse_return(pointer)
-                }
-                o => {
-                    Err(CodeError::new_unexpected_token_error(token, TokenType::Statement, Some("Expected some sort of statement".to_string())))
-                }
+                TokenType::Return => self.parse_return(pointer),
+                o => Err(CodeError::new_unexpected_token_error(
+                    token,
+                    TokenType::Statement,
+                    Some("Expected some sort of statement".to_string()),
+                )),
             }
         } else {
-            Err(CodeError::missing_token_error(self.previous(pointer).unwrap()))
+            Err(CodeError::missing_token_error(
+                self.previous(pointer).unwrap(),
+            ))
         }
     }
-    
+
     fn is_done(&self, pointer: &usize) -> bool {
-        (*pointer-1) == self.tokens.len()
+        (*pointer - 1) == self.tokens.len()
     }
-    
+
     fn is_done_err(&self, pointer: &usize) -> CodeResult<()> {
         if self.is_done(pointer) {
-            Err(CodeError::missing_token_error(self.previous(pointer).unwrap()))
+            Err(CodeError::missing_token_error(
+                self.previous(pointer).unwrap(),
+            ))
         } else {
             Ok(())
         }
@@ -252,7 +286,10 @@ impl<'a> Parser<'a> {
     fn parse_expression(&self, pointer: &mut usize) -> CodeResult<ASTNode> {
         let term = self.parse_term(pointer)?;
         if self.match_token(pointer, TokenType::As)? {
-            Ok(ASTNode::CastExpr(Box::new(term), Box::new(self.parse_type(pointer)?)))
+            Ok(ASTNode::CastExpr(
+                Box::new(term),
+                Box::new(self.parse_type(pointer)?),
+            ))
         } else {
             Ok(term)
         }
@@ -293,9 +330,7 @@ impl<'a> Parser<'a> {
     fn parse_primary(&self, pointer: &mut usize) -> CodeResult<ASTNode> {
         if let Some(token) = self.advance(pointer) {
             match token.token_type {
-                TokenType::NumberInt | TokenType::NumberFloat => {
-                    Ok(ASTNode::Literal(token))
-                }
+                TokenType::NumberInt | TokenType::NumberFloat => Ok(ASTNode::Literal(token)),
                 TokenType::Identifier => {
                     if self.match_next_token(pointer, TokenType::LParen)? {
                         self.parse_function_call(pointer)
@@ -303,9 +338,7 @@ impl<'a> Parser<'a> {
                         Ok(ASTNode::Identifier(token))
                     }
                 }
-                TokenType::String => {
-                    Ok(ASTNode::String(token))
-                }
+                TokenType::String => Ok(ASTNode::String(token)),
                 TokenType::LParen => {
                     let expr = self.parse_expression(pointer)?;
                     if self.match_token(pointer, TokenType::RParen)? {
@@ -315,18 +348,28 @@ impl<'a> Parser<'a> {
                         Err(CodeError::placeholder())
                     }
                 }
-                _ => {
-                    Err(CodeError::new_unexpected_token_error(self.previous(pointer).unwrap(), TokenType::Expression,
-                                                              Some("You may add a literal (number), string, variable, or a term here".to_string())))
-                }
+                _ => Err(CodeError::new_unexpected_token_error(
+                    self.previous(pointer).unwrap(),
+                    TokenType::Expression,
+                    Some(
+                        "You may add a literal (number), string, variable, or a term here"
+                            .to_string(),
+                    ),
+                )),
             }
         } else {
-            Err(CodeError::missing_token_error(self.previous(pointer).unwrap()))
+            Err(CodeError::missing_token_error(
+                self.previous(pointer).unwrap(),
+            ))
         }
     }
-    
+
     fn parse_type(&self, pointer: &mut usize) -> CodeResult<ASTNode> {
-        Ok(ASTNode::Type(self.consume(pointer, TokenType::Identifier, None)?))
+        Ok(ASTNode::Type(self.consume(
+            pointer,
+            TokenType::Identifier,
+            None,
+        )?))
     }
 }
 
@@ -335,7 +378,7 @@ pub enum FunctionMode {
     Private,
     Export,
     Extern,
-    Default
+    Default,
 }
 
 #[derive(Debug)]
@@ -353,7 +396,13 @@ pub enum ASTNode<'a> {
     // Expr, Type
     CastExpr(Box<ASTNode<'a>>, Box<ASTNode<'a>>),
     // Name, Function mode (private / export / extern), Return-type, Arguments (name, type), Content (Node)
-    FunctionDef(&'a Token, FunctionMode, Box<ASTNode<'a>>, Vec<(&'a Token, Box<ASTNode<'a>>)>, Vec<Box<ASTNode<'a>>>),
+    FunctionDef(
+        &'a Token,
+        FunctionMode,
+        Box<ASTNode<'a>>,
+        Vec<(&'a Token, Box<ASTNode<'a>>)>,
+        Vec<Box<ASTNode<'a>>>,
+    ),
     // Name, Expr, Type annotation (opt)
     VariableSet(&'a Token, Box<ASTNode<'a>>, Option<Box<ASTNode<'a>>>),
     // Lib name
@@ -361,5 +410,5 @@ pub enum ASTNode<'a> {
     // Name, Arguments (expr)
     FunctionCall(&'a Token, Vec<Box<ASTNode<'a>>>),
     // Expr
-    Return(Box<ASTNode<'a>>)
+    Return(Box<ASTNode<'a>>),
 }
