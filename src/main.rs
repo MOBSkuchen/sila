@@ -1,4 +1,3 @@
-#![allow(static_mut_refs)]
 extern crate colorize_rs;
 
 use crate::clparser::{fetch_args_clean, Argument, ArgumentParser, Flag};
@@ -14,6 +13,7 @@ mod comp_errors;
 mod filemanager;
 mod lexer;
 mod parser;
+mod compiler;
 
 fn compile_job(file_manager: &FileManager) -> CodeResult<()> {
     let tokens = tokenize(file_manager.get_content())?;
